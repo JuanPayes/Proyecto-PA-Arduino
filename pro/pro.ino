@@ -10,12 +10,12 @@ WiFiClient wlanclient;
 PubSubClient mqttClient(wlanclient);
 
 //***************CONFIGURACIÓN DE RED****************
-const char *ssid = "Dark knight";
+const char *ssid = "Dark Knigth";
 const char *passwd = "TheFlash2022";
 
 //***************CONFIGURACIÓN DE MQTT***************
-char *server = "192.168.0.7";
-int port = 1883;
+char *server = "192.168.0.5"; 
+int port = 1884;
 
 const char *mqtt_user = "Artefactos";
 const char *mqtt_password = "Repito1234";
@@ -45,10 +45,11 @@ const int PIN_ECHO = D4;
 
 // ===== CONFIGURACIÓN SERVO =====
 Servo miServo;
-const int ANGULO_DETECTADO = 180;  
-const int ANGULO_REPOSO = 0;
+const int ANGULO_DETECTADO = 0;    // 0° = ABIERTO/PERPENDICULAR
+const int ANGULO_REPOSO = 180;     // 180° = CERRADO/PARALELO
 
 // ===== CONFIGURACIÓN HC-SR04 =====
+const char* CLIENT_MQTT_ID = "ESP8266_LATA_01";  // <----------- ID único para MQTT (client_id_mqtt)
 const unsigned long TIMEOUT_US = 25000; // 25ms timeout
 const int READS_AVG = 3; // lecturas para promediar
 const float LIMITE_CM = 18.0; // 18 cm = límite
@@ -99,6 +100,7 @@ void mqttCallback(char *topicChar, byte *payload, unsigned int length) {
     if (message == "reset") {
       servoMovido = false;
       miServo.write(ANGULO_REPOSO);
+      delay(5000);
       Serial.println("Sistema reseteado remotamente");
     }
   }
@@ -315,47 +317,47 @@ char* intToChar(int number) {
     return result;
 }
 
-// Función para crear JSON de color
-// Formato: {"classification":"GRIS_METALICO","confidence":95,"rgb":[85,90,88]}
 void publishColorData(String classification, int confidence) {
-  String json = "{\"classification\":\"" + classification + "\",";
+  String json = "{\"client_id_mqtt\":\"" + String(CLIENT_MQTT_ID) + "\",";
+  json += "\"classification\":\"" + classification + "\",";
   json += "\"confidence\":" + String(confidence) + ",";
   json += "\"rgb\":[" + String(redFreq) + "," + String(greenFreq) + "," + String(blueFreq) + "]}";
   
-  char jsonChar[200];
-  json.toCharArray(jsonChar, 200);
+  char jsonChar[250];
+  json.toCharArray(jsonChar, 250);
   publishToTopic((char*)TOPIC_COLOR, jsonChar);
   
   Serial.print("📤 MQTT Color: ");
   Serial.println(json);
 }
 
-// Función para crear JSON de proximidad
-// Formato: {"distance_cm":15.5,"trigger":true}
+// Función para crear JSON de proximidad con client_id_mqtt
+// Formato: {"client_id_mqtt":"ESP8266_LATA_01","distance_cm":15.5,"trigger":true}
 void publishProximityData(float distance, bool trigger) {
   char* distString = floatToChar(distance, 2);
-  String json = "{\"distance_cm\":" + String(distString) + ",";
+  String json = "{\"client_id_mqtt\":\"" + String(CLIENT_MQTT_ID) + "\",";
+  json += "\"distance_cm\":" + String(distString) + ",";
   json += "\"trigger\":" + String(trigger ? "true" : "false") + "}";
   free(distString);
   
-  char jsonChar[100];
-  json.toCharArray(jsonChar, 100);
+  char jsonChar[150];
+  json.toCharArray(jsonChar, 150);
   publishToTopic((char*)TOPIC_PROXIMITY, jsonChar);
   
   Serial.print("📤 MQTT Proximidad: ");
   Serial.println(json);
 }
 
-// Función para crear JSON de nivel
-// Formato: {"bin_id":"BIN001","level_percent":31.4}
+// Función para publicar nivel con client_id_mqtt
+// Formato: {"client_id_mqtt":"ESP8266_LATA_01","level_percent":31.4}
 void publishLevelData(float levelPercent) {
   char* levelString = floatToChar(levelPercent, 1);
-  String json = "{\"bin_id\":\"BIN001\",";  // ⬅️ CAMBIAR bin_id según tu sistema
+  String json = "{\"client_id_mqtt\":\"" + String(CLIENT_MQTT_ID) + "\",";
   json += "\"level_percent\":" + String(levelString) + "}";
   free(levelString);
   
-  char jsonChar[100];
-  json.toCharArray(jsonChar, 100);
+  char jsonChar[150];
+  json.toCharArray(jsonChar, 150);
   publishToTopic((char*)TOPIC_LEVEL, jsonChar);
   
   Serial.print("📤 MQTT Nivel: ");
@@ -387,19 +389,28 @@ void loop() {
     Serial.println();
     Serial.println("🔘 LATA DETECTADA - SERVO ACTIVADO");
     Serial.println("   Color: GRIS METÁLICO           ");
-    Serial.println("   Servo: 180° (BLOQUEADO)        ");
+    Serial.println("   Servo: 0° (ABIERTO/PERPENDICULAR)");
+    Serial.println("   Manteniéndose abierto por 10 segundos...");
     Serial.println();
     
     // Publicar color detectado (GRIS_METALICO con 95% confianza)
     publishColorData("GRIS_METALICO", 95);
     
-    delay(15);
+    // Mantener servo abierto por 10 segundos permitiendo MQTT
+    for (int i = 0; i < 100; i++) {
+      mqttClient.loop();  // Mantener conexión MQTT activa
+      delay(100);  // 100ms x 100 = 10 segundos total
+    }
+    
+    Serial.println("✅ Tiempo de apertura completado. Esperando retiro de objeto...");
+    return;  // Salir del loop para no ejecutar el cierre inmediatamente
   }
   
   if (!activarServo && servoMovido) {
     miServo.write(ANGULO_REPOSO);
+    delay(5000);
     servoMovido = false;
-    Serial.println("❌ Sin lata detectada - Servo vuelve a 0° (LISTO PARA NUEVO CICLO)");
+    Serial.println("❌ Sin lata detectada - Servo vuelve a 180° (CERRADO/PARALELO - LISTO PARA NUEVO CICLO)");
     
     // Publicar que no hay color detectado
     publishColorData("NINGUNO", 0);
@@ -425,14 +436,14 @@ void loop() {
   if (esColorGris) {
     Serial.print("🔘 GRIS (LATA)");
   } else {
-    Serial.print("⚪ Otro color");
+    Serial.print("⚪ No se detecto un color de aluminio");
   }
   
   Serial.print("\t│ 🔧 Servo: ");
   if (servoMovido) {
-    Serial.print("180° ⚠️ BLOQUEADO");
+    Serial.print("0° ⚠️ ABIERTO");
   } else {
-    Serial.print("0° ✓ LISTO");
+    Serial.print("180° ✓ CERRADO");
   }
   
   Serial.print("\t│ Estado: ");
