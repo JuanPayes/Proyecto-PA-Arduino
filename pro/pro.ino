@@ -10,28 +10,26 @@ WiFiClient wlanclient;
 PubSubClient mqttClient(wlanclient);
 
 //***************CONFIGURACIÓN DE RED****************
-const char *ssid = "Dark Knigth";
-const char *passwd = "TheFlash2022";
+const char *ssid = "Dark Knigth"; // <--------------- CAMBIAR
+const char *passwd = "TheFlash2022"; //<--------------- CAMBIAR
 
 //***************CONFIGURACIÓN DE MQTT***************
-char *server = "192.168.0.5"; 
+char *server = "192.168.0.5"; // <--------------- CAMBIAR
 int port = 1884;
 
 const char *mqtt_user = "Artefactos";
 const char *mqtt_password = "Repito1234";
 
-// Definir todos los "topics" a los cuales se desea suscribir
 const char* topics[] = {
-  "/lata/comando",        // Para recibir comandos remotos
-  "/lata/calibrar"        // Para calibrar remotamente
+  "/lata/comando",
+  "/lata/calibrar"
 };
 
-// Topics para publicar (siguiendo estructura de tu API)
+// Topics
 const char* TOPIC_COLOR = "/smartbin/color";
 const char* TOPIC_PROXIMITY = "/smartbin/proximity";
 const char* TOPIC_LEVEL = "/smartbin/level";
 
-// ===== CONFIGURACIÓN DE PINES =====
 const int PIN_PROXIMIDAD = D1;
 const int PIN_SERVO = D2;
 const int PIN_TRIG = D3;
@@ -43,19 +41,16 @@ const int PIN_ECHO = D4;
 #define S3 D0
 #define OUT D8
 
-// ===== CONFIGURACIÓN SERVO =====
 Servo miServo;
-const int ANGULO_DETECTADO = 0;    // 0° = ABIERTO/PERPENDICULAR
-const int ANGULO_REPOSO = 180;     // 180° = CERRADO/PARALELO
+const int ANGULO_DETECTADO = 0;
+const int ANGULO_REPOSO = 180;
 
-// ===== CONFIGURACIÓN HC-SR04 =====
-const char* CLIENT_MQTT_ID = "ESP8266_LATA_01";  // <----------- ID único para MQTT (client_id_mqtt)
-const unsigned long TIMEOUT_US = 25000; // 25ms timeout
-const int READS_AVG = 3; // lecturas para promediar
-const float LIMITE_CM = 18.0; // 18 cm = límite
-const float MIN_DISTANCIA_CM = 2.0; // distancia mínima confiable
+const char* CLIENT_MQTT_ID = "ESP8266_LATA_01";  // <----------- ID único para MQTT (client_id_mqtt) NO OLVIDAR
+const unsigned long TIMEOUT_US = 25000;
+const int READS_AVG = 3;
+const float LIMITE_CM = 18.0;
+const float MIN_DISTANCIA_CM = 2.0;
 
-// ===== UMBRALES PARA DETECTAR GRIS METÁLICO (LATA) =====
 int ROJO_MIN_GRIS = 60;      
 int ROJO_MAX_GRIS = 120;     
 int VERDE_MIN_GRIS = 60;     
@@ -64,25 +59,21 @@ int AZUL_MIN_GRIS = 60;
 int AZUL_MAX_GRIS = 120;     
 int DIFERENCIA_MAX_GRIS = 30;
 
-// ===== VARIABLES DE ESTADO =====
 bool objetoDetectado = false;
 bool esColorGris = false;
 bool estadoAnterior = false;
 int estadoProximidad = HIGH;
 bool servoMovido = false;
 
-// Variables RGB
 int redFreq = 0;
 int greenFreq = 0;
 int blueFreq = 0;
 
-// Variables para control de publicación MQTT
 unsigned long lastPublish = 0;
-const unsigned long PUBLISH_INTERVAL = 2000; // Publicar cada 2 segundos
+const unsigned long PUBLISH_INTERVAL = 2000; 
 String lastColorPublished = "";
 float lastDistancePublished = -1;
 
-//***************CALLBACK DE RESOLUCIÓN A SUBSCRIBES***************
 void mqttCallback(char *topicChar, byte *payload, unsigned int length) {
   Serial.println();
   String topic = String(topicChar);
@@ -106,7 +97,6 @@ void mqttCallback(char *topicChar, byte *payload, unsigned int length) {
   }
 }
 
-//***************FUNCIONES PARA PUBLICAR Y SUSCRIBIR***************
 boolean publishToTopic(char *topic, char *message) {
   return mqttClient.publish(topic, message);
 }
@@ -122,28 +112,23 @@ void setup() {
   Serial.begin(115200);
   delay(10);
   
-  // Configurar pines sensores
   pinMode(PIN_PROXIMIDAD, INPUT_PULLUP);
   pinMode(PIN_TRIG, OUTPUT);
   pinMode(PIN_ECHO, INPUT);
   digitalWrite(PIN_TRIG, LOW);
   
-  // Configurar pines TCS3200
   pinMode(S0, OUTPUT);
   pinMode(S1, OUTPUT);
   pinMode(S2, OUTPUT);
   pinMode(S3, OUTPUT);
   pinMode(OUT, INPUT);
   
-  // Configurar escala de frecuencia a 20%
   digitalWrite(S0, HIGH);
   digitalWrite(S1, LOW);
   
-  // Inicializar servo
   miServo.attach(PIN_SERVO);
   miServo.write(ANGULO_REPOSO);
   
-  //*********Configurar conexión wifi*************
   WiFi.begin(ssid, passwd);
   Serial.println();
   Serial.print("Conectando a WiFi");
@@ -158,11 +143,9 @@ void setup() {
   WiFi.setAutoReconnect(true);
   WiFi.persistent(true);
 
-  //*********Configurar conexión MQTT*************
   mqttClient.setServer(server, port);
   mqttClient.setCallback(mqttCallback);
 
-  // Realizar conexión al MQTT Broker
   if (mqttClient.connect("ESP-Detector-Latas", mqtt_user, mqtt_password)) {
     Serial.println("Conectado al Broker MQTT");
   } else {
@@ -181,7 +164,6 @@ void setup() {
   Serial.println();
 }
 
-// ===== FUNCIONES TCS3200 =====
 void leerColorRGB() {
   digitalWrite(S2, LOW);
   digitalWrite(S3, LOW);
@@ -213,7 +195,6 @@ bool detectarGrisMetalico(int r, int g, int b) {
   return true;
 }
 
-// ===== FUNCIONES HC-SR04 =====
 float medirDistanciaCm() {
   digitalWrite(PIN_TRIG, LOW);
   delayMicroseconds(5);
@@ -258,7 +239,6 @@ float distanciaAPorcentaje(float distanciaCm) {
   return porcentaje;
 }
 
-//***************FUNCIÓN DE RECONEXIÓN MQTT***************
 void reconnect() {
   while (!mqttClient.connected()) {
     Serial.println("Intentando conectar al broker MQTT...");
@@ -298,7 +278,6 @@ void printWifiStatus() {
   }
 }
 
-//***************FUNCIONES AUXILIARES DE CONVERSIÓN***************
 char* floatToChar(float number, int precision) {
     int length = snprintf(NULL, 0, "%.*f", precision, number);
     char* result = (char*)malloc(length + 1);
@@ -331,8 +310,6 @@ void publishColorData(String classification, int confidence) {
   Serial.println(json);
 }
 
-// Función para crear JSON de proximidad con client_id_mqtt
-// Formato: {"client_id_mqtt":"ESP8266_LATA_01","distance_cm":15.5,"trigger":true}
 void publishProximityData(float distance, bool trigger) {
   char* distString = floatToChar(distance, 2);
   String json = "{\"client_id_mqtt\":\"" + String(CLIENT_MQTT_ID) + "\",";
@@ -348,8 +325,6 @@ void publishProximityData(float distance, bool trigger) {
   Serial.println(json);
 }
 
-// Función para publicar nivel con client_id_mqtt
-// Formato: {"client_id_mqtt":"ESP8266_LATA_01","level_percent":31.4}
 void publishLevelData(float levelPercent) {
   char* levelString = floatToChar(levelPercent, 1);
   String json = "{\"client_id_mqtt\":\"" + String(CLIENT_MQTT_ID) + "\",";
@@ -365,22 +340,18 @@ void publishLevelData(float levelPercent) {
 }
 
 void loop() {
-  // Verificar conexión WiFi y MQTT
   printWifiStatus();
   if (!mqttClient.connected()) {
     reconnect(); 
   }
   mqttClient.loop();
 
-  // ===== 1. LEER SENSOR DE PROXIMIDAD =====
   estadoProximidad = digitalRead(PIN_PROXIMIDAD);
   objetoDetectado = (estadoProximidad == LOW);
   
-  // ===== 2. LEER COLOR RGB =====
   leerColorRGB();
   esColorGris = detectarGrisMetalico(redFreq, greenFreq, blueFreq);
   
-  // ===== 3. CONTROLAR SERVO =====
   bool activarServo = (objetoDetectado && esColorGris);
   
   if (activarServo && !servoMovido) {
@@ -393,17 +364,15 @@ void loop() {
     Serial.println("   Manteniéndose abierto por 10 segundos...");
     Serial.println();
     
-    // Publicar color detectado (GRIS_METALICO con 95% confianza)
     publishColorData("GRIS_METALICO", 95);
     
-    // Mantener servo abierto por 10 segundos permitiendo MQTT
     for (int i = 0; i < 100; i++) {
-      mqttClient.loop();  // Mantener conexión MQTT activa
-      delay(100);  // 100ms x 100 = 10 segundos total
+      mqttClient.loop();
+      delay(100);
     }
     
     Serial.println("✅ Tiempo de apertura completado. Esperando retiro de objeto...");
-    return;  // Salir del loop para no ejecutar el cierre inmediatamente
+    return;
   }
   
   if (!activarServo && servoMovido) {
@@ -412,16 +381,13 @@ void loop() {
     servoMovido = false;
     Serial.println("❌ Sin lata detectada - Servo vuelve a 180° (CERRADO/PARALELO - LISTO PARA NUEVO CICLO)");
     
-    // Publicar que no hay color detectado
     publishColorData("NINGUNO", 0);
     
     delay(15);
   }
   
-  // ===== 4. MEDIR DISTANCIA CON HC-SR04 =====
   float distancia = medirPromedioCm(READS_AVG);
   
-  // ===== 5. MOSTRAR INFORMACIÓN Y PUBLICAR A MQTT =====
   Serial.print("👁️ Prox: ");
   Serial.print(objetoDetectado ? "✓ SÍ" : "✗ NO");
   
@@ -479,17 +445,13 @@ void loop() {
     }
     Serial.println("]");
     
-    // Publicar datos periódicamente (cada PUBLISH_INTERVAL ms)
     unsigned long currentMillis = millis();
     if (currentMillis - lastPublish >= PUBLISH_INTERVAL) {
       
-      // 1. Publicar proximidad (distance_cm y trigger boolean)
       publishProximityData(distancia, objetoDetectado);
       
-      // 2. Publicar nivel de llenado (bin_id y level_percent)
       publishLevelData(porcentaje);
       
-      // 3. Publicar color si cambió
       String currentColor = esColorGris ? "GRIS_METALICO" : "OTRO";
       if (currentColor != lastColorPublished) {
         int confidence = esColorGris ? 95 : 0;
